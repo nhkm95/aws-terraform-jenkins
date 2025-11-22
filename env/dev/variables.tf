@@ -54,7 +54,7 @@ variable "ec2_instances" {
     instance_type  = string
     key_pair_name  = string
     root_volume_gb = number
-    user_data_file = string          # file in this module dir
+    user_data_file = optional(string)          # file in this module dir
   }))
 }
 

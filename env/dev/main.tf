@@ -62,6 +62,6 @@ module "jenkins_ec2" {
   key_name             = each.value.key_pair_name
   root_volume_gb       = each.value.root_volume_gb
   associate_public_ip  = true
-  user_data            = file("${path.module}/${each.value.user_data_file}")
+  user_data            = try(file("${path.module}/${each.value.user_data_file}"), null)
   tags                 = local.common_tags
 }

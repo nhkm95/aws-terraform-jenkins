@@ -18,6 +18,12 @@ resource "aws_instance" "this" {
   associate_public_ip_address = var.associate_public_ip
   user_data                   = var.user_data
 
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"  # IMDSv2 only
+    http_put_response_hop_limit = 1
+  }
+  
   root_block_device {
     volume_size = var.root_volume_gb
     volume_type = "gp3"

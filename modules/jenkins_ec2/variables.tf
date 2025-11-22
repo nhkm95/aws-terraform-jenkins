@@ -31,7 +31,8 @@ variable "associate_public_ip" {
 }
 
 variable "user_data" {
-  type = string
+  type    = string
+  default = null
 }
 
 variable "tags" {
