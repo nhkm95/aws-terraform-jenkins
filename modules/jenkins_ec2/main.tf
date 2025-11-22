@@ -103,6 +103,8 @@ data "aws_iam_policy_document" "jenkins" {
       "iam:DetachRolePolicy",
       "iam:ListRolePolicies",
       "iam:GetPolicy",
+      "iam:GetPolicyVersion",
+      "iam:ListAttachedRolePolicies",
 
       "iam:CreateInstanceProfile",
       "iam:GetInstanceProfile",
