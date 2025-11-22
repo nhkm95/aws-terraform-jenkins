@@ -101,6 +101,8 @@ data "aws_iam_policy_document" "jenkins" {
       "iam:DeleteRole",
       "iam:AttachRolePolicy",
       "iam:DetachRolePolicy",
+      "iam:ListRolePolicies",
+      "iam:GetPolicy",
 
       "iam:CreateInstanceProfile",
       "iam:GetInstanceProfile",
