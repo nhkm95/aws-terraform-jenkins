@@ -109,8 +109,8 @@ data "aws_iam_policy_document" "jenkins" {
       "iam:DeleteInstanceProfile"
     ]
     resources = [
-        "arn:aws:iam::004401752458:role/nhbs-dev-jenkins-role",
-        "arn:aws:iam::004401752458:instance-profile/nhbs-dev-jenkins-instance-profile"
+        "arn:aws:iam::004401752458:role/iamr-jenkins",
+        "arn:aws:iam::004401752458:instance-profile/jenkins-profile"
     ]
     effect = "Allow"
   }
