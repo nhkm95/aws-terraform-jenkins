@@ -1,0 +1,51 @@
+# --- Terraform local dirs ---
+.terraform/
+.terraform.tfstate.lock.info
+
+# --- Terraform state files (remote state lives in S3, these are local only) ---
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+
+# --- Terraform variable files (NEVER COMMIT REAL VALUES) ---
+*.tfvars
+*.tfvars.json
+
+# Example explicit (if you want to be extra safe)
+bootstrap.tfvars
+dev.tfvars
+*.auto.tfvars
+
+# --- Backend config files (contain bucket/key/region) ---
+backend*.hcl
+*backend*.hcl
+
+# --- Terraform override files ---
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# --- Terraform plan artifacts ---
+*.tfplan
+tfplan.bin
+tfplan.json
+
+# --- SSH keys / sensitive files ---
+*.pem
+*.key
+*.pfx
+*.p12
+
+# --- IDE/editor junk ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# --- Logs / temp ---
+*.log
+tmp/
