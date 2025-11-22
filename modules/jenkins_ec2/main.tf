@@ -45,8 +45,8 @@ data "aws_iam_policy_document" "jenkins" {
       "s3:GetBucketVersioning"
     ]
     resources = [
-      "arn:aws:s3:::nhbs-dev-state",
-      "arn:aws:s3:::nhbs-dev-state/*"      
+      "arn:aws:s3:::nhbs-dev-tfstate",
+      "arn:aws:s3:::nhbs-dev-tfstate/*"      
     ]
     effect = "Allow"
   }
