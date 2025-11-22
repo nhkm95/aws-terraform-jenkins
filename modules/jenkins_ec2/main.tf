@@ -46,7 +46,9 @@ data "aws_iam_policy_document" "jenkins" {
     ]
     resources = [
       "arn:aws:s3:::nhbs-dev-tfstate",
-      "arn:aws:s3:::nhbs-dev-tfstate/*"      
+      "arn:aws:s3:::nhbs-dev-tfstate/*",
+      "arn:aws:s3:::nhbs-dev-tfplan/",
+      "arn:aws:s3:::nhbs-dev-tfplan/*"      
     ]
     effect = "Allow"
   }
