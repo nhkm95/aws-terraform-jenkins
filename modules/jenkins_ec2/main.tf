@@ -110,7 +110,8 @@ data "aws_iam_policy_document" "jenkins" {
     ]
     resources = [
         "arn:aws:iam::004401752458:role/iamr-jenkins",
-        "arn:aws:iam::004401752458:instance-profile/jenkins-profile"
+        "arn:aws:iam::004401752458:instance-profile/jenkins-profile",
+        "arn:aws:iam::004401752458:policy/iamp-jenkins"
     ]
     effect = "Allow"
   }
