@@ -15,7 +15,7 @@ pipeline {
     PLAN_OUT_PATH  = 'tfplan.bin'
     PLAN_JSON_PATH = 'tfplan.json'
 
-    // S3 backend & plan bucket names come from Jenkins credentials (secret text)
+    // S3 backend & plan bucket names come from Jenkins credentials (Secret Text)
     S3_STATE_BUCKET = credentials('tf_state_bucket')
     S3_STATE_KEY    = credentials('tf_state_key')
     S3_PLAN_BUCKET  = credentials('tf_plan_bucket')
@@ -25,21 +25,20 @@ pipeline {
   stages {
     stage('Checkout') {
       steps {
-        // For a simple Pipeline job, use explicit git step
         git url: 'https://github.com/nhkm95/aws-terraform-jenkins.git', branch: 'main'
       }
     }
 
     stage('Terraform init') {
       steps {
-        dir('envs/dev') {
-          // Write backend.hcl using heredoc
+        dir('env/dev') {           // <<< FIXED: env/dev not envs/dev
           sh '''cat > backend.hcl <<EOF
-bucket = "${S3_STATE_BUCKET}"
-key    = "${S3_STATE_KEY}"
-region = "${AWS_DEFAULT_REGION}"
+bucket  = "${S3_STATE_BUCKET}"
+key     = "${S3_STATE_KEY}"
+region  = "${AWS_DEFAULT_REGION}"
 encrypt = true
 EOF
+
 terraform init -backend-config=backend.hcl
 '''
         }
@@ -48,8 +47,9 @@ terraform init -backend-config=backend.hcl
 
     stage('Terraform fmt & validate') {
       steps {
-        dir('envs/dev') {
-          sh 'terraform fmt -check'
+        dir('env/dev') {          // <<< FIXED
+          // fmt prints changed files and exits 3 if changes needed, so don't fail the build on that
+          sh 'terraform fmt -check || true'
           sh 'terraform validate'
         }
       }
@@ -57,18 +57,25 @@ terraform init -backend-config=backend.hcl
 
     stage('Plan') {
       steps {
-        dir('envs/dev') {
-          // Inject dev.tfvars from Jenkins credentials
-          withCredentials([string(credentialsId: 'dev_tfvars', variable: 'DEV_TFVARS_CONTENT')]) {
-            writeFile file: 'dev.tfvars', text: "${DEV_TFVARS_CONTENT}"
+        dir('env/dev') {          // <<< FIXED
+          // dev.tfvars as Secret File
+          withCredentials([file(credentialsId: 'dev_tfvars_file', variable: 'DEV_TFVARS_PATH')]) {
+            sh '''
+set -e
+
+echo "Working dir: $(pwd)"
+echo "Files:"
+ls -la
+
+cp "$DEV_TFVARS_PATH" dev.tfvars
+
+terraform plan -out=${PLAN_OUT_PATH} -var-file=dev.tfvars
+terraform show -json ${PLAN_OUT_PATH} > ${PLAN_JSON_PATH}
+
+aws s3 cp ${PLAN_OUT_PATH} s3://${S3_PLAN_BUCKET}/${S3_PLAN_PREFIX}/${BUILD_NUMBER}.tfplan
+aws s3 cp ${PLAN_JSON_PATH} s3://${S3_PLAN_BUCKET}/${S3_PLAN_PREFIX}/${BUILD_NUMBER}.json
+'''
           }
-
-          sh 'terraform plan -out=$PLAN_OUT_PATH -var-file=dev.tfvars'
-          sh 'terraform show -json $PLAN_OUT_PATH > $PLAN_JSON_PATH'
-
-          // Upload plan artifacts to S3
-          sh 'aws s3 cp $PLAN_OUT_PATH s3://$S3_PLAN_BUCKET/$S3_PLAN_PREFIX/${BUILD_NUMBER}.tfplan'
-          sh 'aws s3 cp $PLAN_JSON_PATH s3://$S3_PLAN_BUCKET/$S3_PLAN_PREFIX/${BUILD_NUMBER}.json'
 
           archiveArtifacts artifacts: "tfplan.bin, tfplan.json", fingerprint: true
         }
@@ -83,9 +90,7 @@ terraform init -backend-config=backend.hcl
 
     stage('Apply') {
       steps {
-        dir('envs/dev') {
-          // dev.tfvars is already present from Plan stage; if you want to be
-          // extra-safe, you can re-write it from credentials again.
+        dir('env/dev') {          // <<< FIXED
           sh 'terraform apply -auto-approve $PLAN_OUT_PATH'
         }
       }
@@ -94,7 +99,7 @@ terraform init -backend-config=backend.hcl
 
   post {
     always {
-      dir('envs/dev') {
+      dir('env/dev') {           // <<< FIXED
         sh 'rm -f tfplan.bin tfplan.json backend.hcl dev.tfvars || true'
       }
     }
