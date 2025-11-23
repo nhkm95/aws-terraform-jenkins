@@ -62,6 +62,6 @@ variable "jenkins_ami" {
   type = string
 }
 
-# variable "windows_ami" {
-#   type = string
-# }
+variable "windows_ami" {
+  type = string
+}
