@@ -57,8 +57,7 @@ terraform init -backend-config=backend.hcl
 
     stage('Plan') {
       steps {
-        dir('env/dev') {
-          // dev.tfvars as Secret File
+        dir('env/dev') {          // stays the same
           withCredentials([file(credentialsId: 'dev_tfvars_file', variable: 'DEV_TFVARS_PATH')]) {
             sh '''
 set -e
@@ -69,18 +68,28 @@ ls -la
 
 cp "$DEV_TFVARS_PATH" dev.tfvars
 
+# 1) create binary plan
 terraform plan -out=${PLAN_OUT_PATH} -var-file=dev.tfvars
-terraform show ${PLAN_OUT_PATH} > tfplan.out
 
-aws s3 cp tfplan.out s3://${S3_PLAN_BUCKET}/${S3_PLAN_PREFIX}/${BUILD_NUMBER}.out
+# 2) human-readable text plan (no color codes)
+terraform show -no-color ${PLAN_OUT_PATH} > tfplan.out
+
+# 3) JSON plan
+terraform show -json ${PLAN_OUT_PATH} > ${PLAN_JSON_PATH}
+
+# 4) upload all three artifacts to S3
+aws s3 cp ${PLAN_OUT_PATH}  s3://${S3_PLAN_BUCKET}/${S3_PLAN_PREFIX}/${BUILD_NUMBER}.tfplan
 aws s3 cp ${PLAN_JSON_PATH} s3://${S3_PLAN_BUCKET}/${S3_PLAN_PREFIX}/${BUILD_NUMBER}.json
+aws s3 cp tfplan.out        s3://${S3_PLAN_BUCKET}/${S3_PLAN_PREFIX}/${BUILD_NUMBER}.out
 '''
           }
 
-          archiveArtifacts artifacts: "tfplan.bin, tfplan.json", fingerprint: true
+          // Archive for Jenkins UI: binary, json, and human-readable text
+          archiveArtifacts artifacts: "tfplan.bin, tfplan.json, tfplan.out", fingerprint: true
         }
       }
     }
+
   }
 
   post {
