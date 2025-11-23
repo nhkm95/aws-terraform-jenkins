@@ -89,6 +89,7 @@ data "aws_iam_policy_document" "jenkins" {
       "ec2:StopInstances",
       "ec2:StartInstances",
       "ec2:ModifyInstanceAttribute",
+      "ec2:GetPasswordData",
 
       "ec2:CreateTags",
       "ec2:DeleteTags"
