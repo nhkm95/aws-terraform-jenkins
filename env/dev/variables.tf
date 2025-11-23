@@ -58,6 +58,10 @@ variable "ec2_instances" {
   }))
 }
 
-variable "ami" {
+variable "jenkins_ami" {
+  type = string
+}
+
+variable "windows_ami" {
   type = string
 }

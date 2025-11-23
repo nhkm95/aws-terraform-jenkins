@@ -1,0 +1,93 @@
+pipeline {
+  agent any
+
+  options {
+    timestamps()
+    disableConcurrentBuilds()
+  }
+
+  environment {
+    TF_IN_AUTOMATION   = 'true'
+    TF_INPUT           = 'false'
+    TF_CLI_ARGS        = '-no-color'
+    AWS_DEFAULT_REGION = 'ap-southeast-1'
+
+    PLAN_OUT_PATH  = 'tfplan.bin'
+    PLAN_JSON_PATH = 'tfplan.json'
+
+    // Secret Text credentials
+    S3_STATE_BUCKET = credentials('tf_state_bucket')
+    S3_STATE_KEY    = credentials('tf_state_key')
+    S3_PLAN_BUCKET  = credentials('tf_plan_bucket')
+    S3_PLAN_PREFIX  = 'plans/dev'
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        git url: 'https://github.com/nhkm95/aws-terraform-jenkins.git', branch: 'main'
+      }
+    }
+
+    stage('Terraform init') {
+      steps {
+        dir('env/dev') {
+          sh '''cat > backend.hcl <<EOF
+bucket  = "${S3_STATE_BUCKET}"
+key     = "${S3_STATE_KEY}"
+region  = "${AWS_DEFAULT_REGION}"
+encrypt = true
+EOF
+
+terraform init -backend-config=backend.hcl
+'''
+        }
+      }
+    }
+
+    stage('Terraform fmt & validate') {
+      steps {
+        dir('env/dev') {
+          // Don't fail build if fmt finds diffs, just show them
+          sh 'terraform fmt -check || true'
+          sh 'terraform validate'
+        }
+      }
+    }
+
+    stage('Plan') {
+      steps {
+        dir('env/dev') {
+          // dev.tfvars as Secret File
+          withCredentials([file(credentialsId: 'dev_tfvars_file', variable: 'DEV_TFVARS_PATH')]) {
+            sh '''
+set -e
+
+echo "Working dir: $(pwd)"
+echo "Files:"
+ls -la
+
+cp "$DEV_TFVARS_PATH" dev.tfvars
+
+terraform plan -out=${PLAN_OUT_PATH} -var-file=dev.tfvars
+terraform show -json ${PLAN_OUT_PATH} > ${PLAN_JSON_PATH}
+
+aws s3 cp ${PLAN_OUT_PATH} s3://${S3_PLAN_BUCKET}/${S3_PLAN_PREFIX}/${BUILD_NUMBER}.tfplan
+aws s3 cp ${PLAN_JSON_PATH} s3://${S3_PLAN_BUCKET}/${S3_PLAN_PREFIX}/${BUILD_NUMBER}.json
+'''
+          }
+
+          archiveArtifacts artifacts: "tfplan.bin, tfplan.json", fingerprint: true
+        }
+      }
+    }
+  }
+
+  post {
+    always {
+      dir('env/dev') {
+        sh 'rm -f tfplan.bin tfplan.json backend.hcl dev.tfvars || true'
+      }
+    }
+  }
+}

@@ -1,0 +1,95 @@
+pipeline {
+  agent any
+
+  options {
+    timestamps()
+    disableConcurrentBuilds()
+  }
+
+  parameters {
+    string(
+      name: 'PLAN_BUILD_ID',
+      defaultValue: '',
+      description: 'TF-Plan build number to apply (see TF-Plan job build history)'
+    )
+  }
+
+  environment {
+    TF_IN_AUTOMATION   = 'true'
+    TF_INPUT           = 'false'
+    TF_CLI_ARGS        = '-no-color'
+    AWS_DEFAULT_REGION = 'ap-southeast-1'
+
+    PLAN_OUT_PATH = 'tfplan.bin'
+
+    // Same Secret Text credentials as Plan job
+    S3_STATE_BUCKET = credentials('tf_state_bucket')
+    S3_STATE_KEY    = credentials('tf_state_key')
+    S3_PLAN_BUCKET  = credentials('tf_plan_bucket')
+    S3_PLAN_PREFIX  = 'plans/dev'
+  }
+
+  stages {
+    stage('Validate input') {
+      steps {
+        script {
+          if (!params.PLAN_BUILD_ID?.trim()) {
+            error "PLAN_BUILD_ID is required. Go to TF-Plan job, pick a successful build number, and put it here."
+          }
+        }
+      }
+    }
+
+    stage('Checkout') {
+      steps {
+        git url: 'https://github.com/nhkm95/aws-terraform-jenkins.git', branch: 'main'
+      }
+    }
+
+    stage('Terraform init') {
+      steps {
+        dir('env/dev') {
+          sh '''cat > backend.hcl <<EOF
+bucket  = "${S3_STATE_BUCKET}"
+key     = "${S3_STATE_KEY}"
+region  = "${AWS_DEFAULT_REGION}"
+encrypt = true
+EOF
+
+terraform init -backend-config=backend.hcl
+'''
+        }
+      }
+    }
+
+    stage('Download plan from S3') {
+      steps {
+        dir('env/dev') {
+          sh '''
+set -e
+
+echo "Downloading plan for PLAN_BUILD_ID='${PLAN_BUILD_ID}'"
+aws s3 cp s3://${S3_PLAN_BUCKET}/${S3_PLAN_PREFIX}/${PLAN_BUILD_ID}.tfplan ${PLAN_OUT_PATH}
+ls -la
+'''
+        }
+      }
+    }
+
+    stage('Apply') {
+      steps {
+        dir('env/dev') {
+          sh 'terraform apply -auto-approve ${PLAN_OUT_PATH}'
+        }
+      }
+    }
+  }
+
+  post {
+    always {
+      dir('env/dev') {
+        sh 'rm -f tfplan.bin backend.hcl dev.tfvars || true'
+      }
+    }
+  }
+}
