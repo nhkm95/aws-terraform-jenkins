@@ -1,0 +1,113 @@
+
+[1m[36mNote:[0m[1m Objects have changed outside of Terraform
+[0m
+Terraform detected the following changes made outside of Terraform since the
+last "terraform apply" which may have affected this plan:
+
+[1m  # module.jenkins_ec2["jenkins"].aws_instance.this[0m has changed
+[0m  [33m~[0m[0m resource "aws_instance" "this" {
+        id                                   = "i-0df7516513c966ff2"
+      [33m~[0m[0m public_dns                           = "ec2-46-137-231-216.ap-southeast-1.compute.amazonaws.com" [33m->[0m[0m "ec2-52-221-194-146.ap-southeast-1.compute.amazonaws.com"
+      [33m~[0m[0m public_ip                            = "46.137.231.216" [33m->[0m[0m "52.221.194.146"
+        tags                                 = {
+            "Environment" = "dev"
+            "ManagedBy"   = "terraform"
+            "Name"        = "nhbs-dev-jenkins"
+            "Project"     = "nhbs"
+        }
+        [90m# (38 unchanged attributes hidden)[0m[0m
+
+        [90m# (8 unchanged blocks hidden)[0m[0m
+    }
+
+
+Unless you have made equivalent changes to your configuration, or ignored the
+relevant attributes using ignore_changes, the following plan may include
+actions to undo or respond to these changes.
+[90m
+─────────────────────────────────────────────────────────────────────────────[0m
+
+Terraform used the selected providers to generate the following execution
+plan. Resource actions are indicated with the following symbols:
+  [32m+[0m create[0m
+  [33m~[0m update in-place[0m
+  [31m-[0m destroy[0m
+
+Terraform will perform the following actions:
+
+[1m  # module.jenkins_ec2["jenkins"].aws_instance.this[0m will be updated in-place
+[0m  [33m~[0m[0m resource "aws_instance" "this" {
+        id                                   = "i-0df7516513c966ff2"
+        tags                                 = {
+            "Environment" = "dev"
+            "ManagedBy"   = "terraform"
+            "Name"        = "nhbs-dev-jenkins"
+            "Project"     = "nhbs"
+        }
+      [33m~[0m[0m user_data                            = "b1eb8346dd449827a2e40f1dbeec38a798325f1f" [33m->[0m[0m "46ac724975a91cba5bbfc0031c6de20c5685bacb"
+        [90m# (39 unchanged attributes hidden)[0m[0m
+
+        [90m# (8 unchanged blocks hidden)[0m[0m
+    }
+
+[1m  # module.security_groups["jenkins-sg"].aws_vpc_security_group_ingress_rule.ingress["2"][0m will be [1m[31mdestroyed[0m
+  # (because key ["2"] is not in for_each map)
+[0m  [31m-[0m[0m resource "aws_vpc_security_group_ingress_rule" "ingress" {
+      [31m-[0m[0m arn                    = "arn:aws:ec2:ap-southeast-1:004401752458:security-group-rule/sgr-0db871e7ee7923a5b" [90m-> null[0m[0m
+      [31m-[0m[0m cidr_ipv4              = "182.19.212.159/32" [90m-> null[0m[0m
+      [31m-[0m[0m from_port              = 443 [90m-> null[0m[0m
+      [31m-[0m[0m id                     = "sgr-0db871e7ee7923a5b" [90m-> null[0m[0m
+      [31m-[0m[0m ip_protocol            = "tcp" [90m-> null[0m[0m
+      [31m-[0m[0m security_group_id      = "sg-004e2fed53b50ba0b" [90m-> null[0m[0m
+      [31m-[0m[0m security_group_rule_id = "sgr-0db871e7ee7923a5b" [90m-> null[0m[0m
+      [31m-[0m[0m tags_all               = {} [90m-> null[0m[0m
+      [31m-[0m[0m to_port                = 443 [90m-> null[0m[0m
+    }
+
+[1m  # module.vpc.aws_route_table_association.public["public-b"][0m will be created
+[0m  [32m+[0m[0m resource "aws_route_table_association" "public" {
+      [32m+[0m[0m id             = (known after apply)
+      [32m+[0m[0m route_table_id = "rtb-0f0646c04127a3410"
+      [32m+[0m[0m subnet_id      = (known after apply)
+    }
+
+[1m  # module.vpc.aws_subnet.public["public-b"][0m will be created
+[0m  [32m+[0m[0m resource "aws_subnet" "public" {
+      [32m+[0m[0m arn                                            = (known after apply)
+      [32m+[0m[0m assign_ipv6_address_on_creation                = false
+      [32m+[0m[0m availability_zone                              = "ap-southeast-1b"
+      [32m+[0m[0m availability_zone_id                           = (known after apply)
+      [32m+[0m[0m cidr_block                                     = "10.20.0.0/28"
+      [32m+[0m[0m enable_dns64                                   = false
+      [32m+[0m[0m enable_resource_name_dns_a_record_on_launch    = false
+      [32m+[0m[0m enable_resource_name_dns_aaaa_record_on_launch = false
+      [32m+[0m[0m id                                             = (known after apply)
+      [32m+[0m[0m ipv6_cidr_block_association_id                 = (known after apply)
+      [32m+[0m[0m ipv6_native                                    = false
+      [32m+[0m[0m map_public_ip_on_launch                        = true
+      [32m+[0m[0m owner_id                                       = (known after apply)
+      [32m+[0m[0m private_dns_hostname_type_on_launch            = (known after apply)
+      [32m+[0m[0m tags                                           = {
+          [32m+[0m[0m "Environment" = "dev"
+          [32m+[0m[0m "ManagedBy"   = "terraform"
+          [32m+[0m[0m "Name"        = "nhbs-dev-public-b"
+          [32m+[0m[0m "Project"     = "nhbs"
+        }
+      [32m+[0m[0m tags_all                                       = {
+          [32m+[0m[0m "Environment" = "dev"
+          [32m+[0m[0m "ManagedBy"   = "terraform"
+          [32m+[0m[0m "Name"        = "nhbs-dev-public-b"
+          [32m+[0m[0m "Project"     = "nhbs"
+        }
+      [32m+[0m[0m vpc_id                                         = "vpc-01b1e38da71a2e4a0"
+    }
+
+[1mPlan:[0m [0m2 to add, 1 to change, 1 to destroy.
+
+Changes to Outputs:
+  [33m~[0m[0m public_dns = {
+      [33m~[0m[0m jenkins = "ec2-46-137-231-216.ap-southeast-1.compute.amazonaws.com" [33m->[0m[0m "ec2-52-221-194-146.ap-southeast-1.compute.amazonaws.com"
+    }
+  [33m~[0m[0m public_ips = {
+      [33m~[0m[0m jenkins = "46.137.231.216" [33m->[0m[0m "52.221.194.146"
+    }

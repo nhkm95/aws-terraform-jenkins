@@ -70,9 +70,9 @@ ls -la
 cp "$DEV_TFVARS_PATH" dev.tfvars
 
 terraform plan -out=${PLAN_OUT_PATH} -var-file=dev.tfvars
-terraform show -json ${PLAN_OUT_PATH} > ${PLAN_JSON_PATH}
+terraform show ${PLAN_OUT_PATH} > tfplan.out
 
-aws s3 cp ${PLAN_OUT_PATH} s3://${S3_PLAN_BUCKET}/${S3_PLAN_PREFIX}/${BUILD_NUMBER}.tfplan
+aws s3 cp tfplan.out s3://${S3_PLAN_BUCKET}/${S3_PLAN_PREFIX}/${BUILD_NUMBER}.out
 aws s3 cp ${PLAN_JSON_PATH} s3://${S3_PLAN_BUCKET}/${S3_PLAN_PREFIX}/${BUILD_NUMBER}.json
 '''
           }
