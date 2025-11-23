@@ -18,6 +18,8 @@ resource "aws_instance" "this" {
   associate_public_ip_address = var.associate_public_ip
   user_data                   = var.user_data
 
+  disable_api_termination     = true
+
   metadata_options {
     http_endpoint               = "enabled"
     http_tokens                 = "required"  # IMDSv2 only
@@ -27,6 +29,13 @@ resource "aws_instance" "this" {
   root_block_device {
     volume_size = var.root_volume_gb
     volume_type = "gp3"
+  }
+
+  lifecycle {
+    ignore_changes = [
+      user_data
+    ]
+    prevent_destroy = true
   }
 
   tags = merge(var.tags, {
