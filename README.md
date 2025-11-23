@@ -1,22 +1,16 @@
-# AWS Terraform + Jenkins Automation (NHBS / Dev)
+# Terraform + Jenkins CI/CD Pipeline (Dev Environment)
 
-This repository provisions a complete Terraform-managed infrastructure in AWS and deploys a Jenkins CI/CD server (running on EC2) to automatically plan/apply Terraform changes.
-All values are passed through **tfvars**, all naming is fully dynamic, and no secrets or environment-specific data are stored in Git.
+This repository implements a complete CI/CD workflow for provisioning AWS
+infrastructure using Terraform, with Jenkins acting as the automation engine.
 
----
+This setup includes:
 
-## 📦 Project Overview
-
-This project contains:
-
-- **Bootstrap stack** (local state) → creates the S3 backend for Terraform
-- **Environment stack** (remote state) → VPC, subnets, SGs, IAM role, Jenkins EC2
-- **Reusable Terraform modules** (VPC, EC2, SG, IAM)
-- **Cloud-init Jenkins installation**
-- **Jenkins pipeline** to automate Terraform plan/apply
-- **Strict git hygiene** (tfvars/backend/keys ignored)
-
-All parameter values (CIDRs, ports, instance types, AMI filters, IPs, etc.) are defined in **env-specific tfvars**.
+- Automatic pipeline trigger on **GitHub push to `main`** via webhook  
+- Separate **Plan** and **Apply** workflows  
+- Secure handling of Terraform state and plan artifacts in S3  
+- `dev.tfvars` sourced **directly from S3** (no Jenkins credential updates required)  
+- IMDSv2 + IAM instance profile authentication (no static AWS keys)  
+- Manual approval gate before applying Terraform changes  
 
 ---
 
@@ -24,217 +18,198 @@ All parameter values (CIDRs, ports, instance types, AMI filters, IPs, etc.) are 
 
 ```
 aws-terraform-jenkins/
-├─ bootstrap/
-│  ├─ main.tf
-│  ├─ variables.tf
-│  ├─ providers.tf
-│  └─ bootstrap.tfvars.example
-│
-├─ modules/
-│  ├─ vpc/
-│  ├─ security_group/
-│  └─ ec2_instance/
-│
-├─ envs/
-│  └─ dev/
-│     ├─ main.tf
-│     ├─ backend.tf
-│     ├─ variables.tf
-│     ├─ dev.tfvars.example
-│     └─ user_data_jenkins.yaml
-│
-├─ jenkins/
-│  └─ Jenkinsfile
-│
-└─ .gitignore
+├── env/
+│   └── dev/
+│       ├── main.tf
+│       ├── variables.tf
+│       ├── outputs.tf
+│       ├── providers.tf
+│       ├── backend.tf
+│       └── scripts/
+│           └── user_data_jenkins.yaml
+└── modules/
+    ├── vpc/
+    ├── security_groups/
+    └── jenkins_ec2/
 ```
 
 ---
 
-## 🚀 Deployment Workflow
+## 🚀 CI/CD Workflow Overview
 
-### **Step 1 — Bootstrap S3 Backend (Local State)**
+### 1. Push to GitHub → Webhook → Jenkins
 
-Bootstrap uses **local state** to create the remote S3 bucket.
-
-1. Copy the example:
-
-```
-cp bootstrap/bootstrap.tfvars.example bootstrap/bootstrap.tfvars
-```
-
-2. Fill in real values (account ID, bucket name, region).  
-   These files are git-ignored.
-
-3. Run:
-
-```
-cd bootstrap
-terraform init
-terraform apply -var-file=bootstrap.tfvars
-```
-
-Creates:
-
-- S3 bucket for state  
-- Versioning  
-- Encryption  
+A GitHub webhook (`/github-webhook/`) triggers the **TF-Plan-dev** job automatically
+whenever a commit is pushed to the `main` branch.
 
 ---
 
-### **Step 2 — Prepare Environment Files (Remote State)**
+## 🧩 TF-Plan-dev Job
 
-In `envs/dev/` create:
+This job performs:
 
-- `dev.tfvars` — real values, not committed  
-- `backend-dev.hcl` — backend config, not committed  
+1. **Checkout Code**
+2. **Terraform Init** with backend config from Jenkins credentials  
+3. **Terraform fmt & validate**
+4. **Download latest dev.tfvars from S3**
+5. **Generate tfplan.bin + tfplan.json**
+6. **Upload plan artifacts to S3**
+7. **Manual approval step**
+8. **(Optional inside same pipeline) Apply**
 
-Example config includes:
-
-- VPC CIDR  
-- Public subnets (dynamic keys)  
-- Security groups (dynamic keys)  
-- Jenkins EC2 instance parameters  
-- State bucket + key  
-
-Only **dev.tfvars.example** is committed.
-
----
-
-### **Step 3 — Deploy Infrastructure**
+Artifacts uploaded to S3:
 
 ```
-cd envs/dev
-terraform init -backend-config=backend-dev.hcl
-terraform plan -var-file=dev.tfvars
-terraform apply -var-file=dev.tfvars -auto-approve
-```
-
-This provisions:
-
-- VPC  
-- IGW  
-- Route tables  
-- Subnets  
-- Security groups  
-- Jenkins IAM role  
-- Jenkins EC2 instance (Ubuntu 22.04 via Cloud-init)
-
-Outputs include:
-
-- Jenkins Public IP
-- Jenkins Public DNS
-
----
-
-### **Step 4 — Access Jenkins**
-
-1. SSH into instance:
-
-```
-ssh -i jenkins-kp.pem ubuntu@<public-ip>
-```
-
-2. Retrieve initial password:
-
-```
-sudo cat /var/lib/jenkins/secrets/initialAdminPassword
-```
-
-3. Login at:
-
-```
-http://<public-dns>:8080
-```
-
-Finish setup and create admin user.
-
----
-
-### **Step 5 — Configure Jenkins Pipeline**
-
-Jenkinsfile (`jenkins/Jenkinsfile`) performs:
-
-- Checkout  
-- Terraform init (backend config from Jenkins credentials)  
-- fmt / validate  
-- plan → upload plan to S3  
-- manual approval  
-- apply  
-
-#### Jenkins Credentials Required
-
-You must create **Secret Text** credentials:
-
-| ID               | Value                               | Purpose                   |
-|------------------|---------------------------------------|---------------------------|
-| `tf_state_bucket` | Backend S3 bucket name                | For terraform init        |
-| `tf_state_key`    | Backend state key (path in bucket)    | For terraform init        |
-| `tf_plan_bucket`  | Bucket for storing plan artifacts     | Optional (can reuse state)|
-
-After creating credentials, Jenkins can run Terraform securely without hardcoding secrets.
-
----
-
-## 🔐 Security
-
-### What Never Goes Into Git
-
-The `.gitignore` protects:
-
-- `*.tfvars` (real values)
-- `backend*.hcl`
-- SSH keys (`*.pem`)
-- State files
-- Plans (`*.tfplan`, `.bin`, `.json`)
-- Crash logs
-- Sensitive backend or pipeline configs
-
-### IAM Role Hardening
-
-Jenkins EC2 uses a **least-privilege policy**, granting only:
-
-- Required S3 access (state + plans)
-- Required EC2/VPC permissions
-- Permission to manage **only its own role**
-- `iam:PassRole` for its own instance profile
-
-No `AdministratorAccess`.
-
----
-
-## 🧩 Customization
-
-You can scale dynamically by modifying only **dev.tfvars**:
-
-- Add more subnets:  
-  `public_subnets = { "public-a" = {...}, "public-b" = {...} }`
-- Add more SGs:  
-  `security_groups = { "jenkins" = {...}, "web" = {...} }`
-- Add more EC2 instances:  
-  `ec2_instances = { "jenkins" = {...}, "web01" = {...} }`
-
-Modules automatically name resources using:
-
-```
-<project>-<environment>-<key>
+s3://<tf-plan-bucket>/plans/dev/<BUILD_NUMBER>.tfplan
+s3://<tf-plan-bucket>/plans/dev/<BUILD_NUMBER>.json
 ```
 
 ---
 
-## ⚙️ Requirements
+## 🧩 TF-Apply-dev Job (Separate Apply Job)
 
-- Terraform ≥ 1.9  
-- AWS CLI  
-- SSH client  
-- Jenkins (installed via cloud-init)  
-- GitHub repo (for Jenkins pipeline)
+This is a manual or automated follow-up job that:
+
+1. Accepts `PLAN_BUILD_ID` as a parameter  
+2. Downloads the matched plan artifact from S3  
+3. Runs:
+
+```
+terraform apply -auto-approve tfplan.bin
+```
+
+This ensures strict separation between planning and applying.
 
 ---
 
-## 🚧 Notes
+## 📦 Storing dev.tfvars in S3
 
-- All real environment values must be kept in **local tfvars**, not committed.
-- All modules are fully reusable, no hardcoding.
-- The design is future-proof for adding ALB, Route53, RDS, or multi-environment (prod/stage).
+To avoid updating Jenkins credentials every time variables change, the pipeline pulls
+`dev.tfvars` directly from an S3 bucket.
 
+### Example:
+
+Bucket:
+
+```
+nhbs-dev-tfvars
+```
+
+Key:
+
+```
+dev/dev.tfvars
+```
+
+Upload/update variables:
+
+```bash
+aws s3 cp env/dev/dev.tfvars s3://nhbs-dev-tfvars/dev/dev.tfvars
+```
+
+---
+
+## 🔐 Jenkins Credentials Used
+
+| ID                | Type         | Purpose                                 |
+|------------------|--------------|------------------------------------------|
+| `tf_state_bucket` | Secret Text  | S3 backend bucket name                   |
+| `tf_state_key`    | Secret Text  | S3 backend key path                      |
+| `tf_plan_bucket`  | Secret Text  | S3 bucket for Terraform plan artifacts   |
+| `tfvars_bucket_dev` | Secret Text | Name of bucket storing dev.tfvars       |
+| `tfvars_key_dev`    | Secret Text | Key (path) to dev.tfvars                |
+
+---
+
+## 🔧 AWS IAM Roles Required
+
+Jenkins EC2 instance uses an instance profile (`iamr-jenkins`) with:
+
+### For Terraform state:
+
+- `s3:GetObject`
+- `s3:ListBucket`
+- `s3:PutObject`
+
+### For dev.tfvars:
+
+```
+s3:GetObject on arn:aws:s3:::nhbs-dev-tfvars/dev/*
+```
+
+### For Terraform-managed resources:
+
+- EC2
+- IAM
+- VPC / subnet / SG / routing
+
+---
+
+## ⚙️ Jenkins Webhook Configuration
+
+GitHub → Repository → **Settings → Webhooks → Add webhook**
+
+```
+Payload URL: http://<jenkins-ip>:8080/github-webhook/
+Content type: application/json
+Events: Just push events
+```
+
+---
+
+## ▶️ Running the Pipeline
+
+### 1. Update tfvars
+
+```bash
+vim env/dev/dev.tfvars
+aws s3 cp env/dev/dev.tfvars s3://nhbs-dev-tfvars/dev/dev.tfvars
+```
+
+### 2. Push code
+
+```bash
+git add .
+git commit -m "Update infra"
+git push origin main
+```
+
+### 3. Jenkins auto-triggers TF-Plan-dev
+
+You approve the plan manually.
+Additonally, you view the plan before apply.
+terraform show -no-color /mnt/c/Users/hakee/Downloads/<build_number>.tfplan
+
+### 4. Apply job
+
+Run **TF-Apply-dev** with parameter:
+
+```
+PLAN_BUILD_ID = <plan build number>
+```
+
+---
+
+## 🧹 Auto Cleanup
+
+Every pipeline run removes temporary files:
+
+```
+tfplan.bin
+tfplan.json
+backend.hcl
+dev.tfvars
+```
+
+---
+
+## 🏁 Summary
+
+You now have a production-ready Terraform CI/CD system:
+
+- Automated Plan on push  
+- Manual-controlled Apply  
+- S3 for plans and tfvars  
+- No secrets in Jenkins  
+- No AWS keys needed  
+- Safe, reviewable infrastructure changes

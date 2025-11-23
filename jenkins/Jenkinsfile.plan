@@ -21,7 +21,7 @@ pipeline {
     S3_PLAN_BUCKET  = credentials('tf_plan_bucket')
     S3_PLAN_PREFIX  = 'plans/dev'
 
-    // NEW: tfvars in S3
+    // tfvars in S3
     TFVARS_BUCKET   = credentials('tfvars_bucket_dev')
     TFVARS_KEY      = credentials('tfvars_key_dev')
   }
@@ -61,9 +61,8 @@ terraform init -backend-config=backend.hcl
 
     stage('Plan') {
       steps {
-        dir('env/dev') {          // stays the same
-          withCredentials([file(credentialsId: 'dev_tfvars_file', variable: 'DEV_TFVARS_PATH')]) {
-            sh '''
+        dir('env/dev') {
+          sh '''
 set -e
 
 echo "Working dir: $(pwd)"
@@ -90,20 +89,17 @@ aws s3 cp ${PLAN_OUT_PATH}  s3://${S3_PLAN_BUCKET}/${S3_PLAN_PREFIX}/${BUILD_NUM
 aws s3 cp ${PLAN_JSON_PATH} s3://${S3_PLAN_BUCKET}/${S3_PLAN_PREFIX}/${BUILD_NUMBER}.json
 aws s3 cp tfplan.out        s3://${S3_PLAN_BUCKET}/${S3_PLAN_PREFIX}/${BUILD_NUMBER}.out
 '''
-          }
-
-          // Archive for Jenkins UI: binary, json, and human-readable text
+          // ✅ archive from inside env/dev where the files are
           archiveArtifacts artifacts: "tfplan.bin, tfplan.json, tfplan.out", fingerprint: true
         }
       }
     }
-
   }
 
   post {
     always {
       dir('env/dev') {
-        sh 'rm -f tfplan.bin tfplan.json backend.hcl dev.tfvars || true'
+        sh 'rm -f tfplan.bin tfplan.json backend.hcl dev.tfvars tfplan.out || true'
       }
     }
   }
