@@ -1,7 +1,4 @@
-output "public_ips" {
-  value = { for name, inst in module.jenkins_ec2 : name => inst.public_ip }
-}
-
-output "public_dns" {
-  value = { for name, inst in module.jenkins_ec2 : name => inst.public_dns }
-}
+# output "windows_password" {
+#   value     = { for k, v in module.windows_server : k => v.password_data }
+#   sensitive = true
+# }

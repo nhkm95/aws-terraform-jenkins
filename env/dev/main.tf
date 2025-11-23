@@ -57,19 +57,19 @@ module "jenkins_ec2" {
   tags                 = local.common_tags
 }
 
-module "windows_server" {
-  source = "../../modules/ec2"
+# module "windows_server" {
+#   source = "../../modules/ec2"
 
-  for_each = { for k, v in var.ec2_instances : k => v if k == "tooling" }
+#   for_each = { for k, v in var.ec2_instances : k => v if k == "tooling" }
 
-  name                 = "${local.base_name}-${each.key}"
-  ami                  = var.windows_ami
-  instance_type        = each.value.instance_type
-  subnet_id            = module.vpc.public_subnet_ids[each.value.subnet_key]
-  sg_ids               = [for sg_name in each.value.sg_names : module.security_groups[sg_name].security_group_id]
-  key_name             = each.value.key_pair_name
-  root_volume_gb       = each.value.root_volume_gb
-  associate_public_ip  = true
-  get_password_data    = true
-  tags                 = local.common_tags
-}
+#   name                 = "${local.base_name}-${each.key}"
+#   ami                  = var.windows_ami
+#   instance_type        = each.value.instance_type
+#   subnet_id            = module.vpc.public_subnet_ids[each.value.subnet_key]
+#   sg_ids               = [for sg_name in each.value.sg_names : module.security_groups[sg_name].security_group_id]
+#   key_name             = each.value.key_pair_name
+#   root_volume_gb       = each.value.root_volume_gb
+#   associate_public_ip  = true
+#   get_password_data    = true
+#   tags                 = local.common_tags
+# }
